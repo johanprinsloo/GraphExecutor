@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<eclipse-userlibraries>
+  <library name="buildScala" />
+  <library name="defScala">
+    <archive path="C:/Users/johan.prinsloo.CORP/wa/NextGen/GraphExecutor/project/boot/scala-2.7.7/lib/scala-compiler.jar" />
+    <archive path="C:/Users/johan.prinsloo.CORP/wa/NextGen/GraphExecutor/project/boot/scala-2.7.7/lib/scala-library.jar" />
+  </library>
+</eclipse-userlibraries>
+
