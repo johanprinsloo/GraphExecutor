@@ -1,0 +1,16 @@
+*.class
+*.log
+
+.idea/
+.settings/
+exportToHTML/
+lib_managed/
+project/boot/
+project/build/target/
+project/plugins/lib_managed/
+project/plugins/project/
+project/plugins/src_managed/
+project/plugins/target/
+rebel.xml
+run.bat
+target/
