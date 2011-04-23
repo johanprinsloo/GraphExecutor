@@ -3,6 +3,7 @@
 
 .idea/
 .settings/
+bin/
 exportToHTML/
 lib_managed/
 doc/
