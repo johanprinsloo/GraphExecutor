@@ -29,13 +29,13 @@ class GraphExecutorProject(info: ProjectInfo) extends DefaultProject(info)  with
   lazy val hi = task {println("Graph Executor - prototype actor based graph execution"); None}
 
   //override def mainClass = Some("nextgen.patterns.actors.Runner")
-  override def mainClass: Option[String] = Some("nextgen.patterns.actorWebUI.WebUIMain")
+  override def mainClass: Option[String] = Some("org.graphexecutor.webui.WebUIMain")
 
   //proguard
   override def proguardInJars = super.proguardInJars +++ scalaLibraryPath
 
   override def proguardOptions = List(
-  proguardKeepMain("nextgen.patterns.actorWebUI.WebUIMain"))
+  proguardKeepMain("org.graphexecutor.webui.WebUIMain"))
 
   //tests
   override def testOptions = super.testOptions ++ Seq(TestArgument(TestFrameworks.ScalaTest, "-oD" ))
@@ -44,21 +44,23 @@ class GraphExecutorProject(info: ProjectInfo) extends DefaultProject(info)  with
 
   def runtimingtests()  = {
     println("start timing tests @ " + consoleClasspath)
-    runTask( Some("nextgen.patterns.actors.ExampleTest1.main"), consoleClasspath )
+    runTask( Some("org.graphexecutor.Runner.main"), consoleClasspath )
     println("end timing tests")
   }
 
-  lazy val setupSysProps = task {
-    System.setProperty("replhtml.class.path", (runClasspath +++ Path.fromFile(buildScalaInstance.compilerJar) +++
-    Path.fromFile(buildScalaInstance.libraryJar)).absString)
-    None
-  } dependsOn(compile)
+  //webrun
+//  lazy val setupSysProps = task {
+//    System.setProperty("replhtml.class.path", (runClasspath +++ Path.fromFile(buildScalaInstance.compilerJar) +++
+//    Path.fromFile(buildScalaInstance.libraryJar)).absString)
+//    None
+//  } dep
+
 
   override def runAction = task { args => {
       val nargs = new Array[String](args.length+1)
       nargs.update(0, "-DDEBUG")
       Array.copy(args, 0, nargs, 1, args.length)
-      super.runAction(args).dependsOn(setupSysProps)
+      super.runAction(args)//.dependsOn(setupSysProps)
     }
   }
   

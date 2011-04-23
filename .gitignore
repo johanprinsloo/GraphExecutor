@@ -5,6 +5,7 @@
 .settings/
 exportToHTML/
 lib_managed/
+doc/
 project/boot/
 project/build/target/
 project/plugins/lib_managed/
