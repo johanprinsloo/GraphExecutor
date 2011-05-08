@@ -12,13 +12,14 @@ Usage
  
 ``` scala
 	//create 4 nodes each with a numeric payload
-    val node1 = NodeRunner("node1", SSsystem(1000, 0.01) )
-    val node2 = NodeRunner("node2", SSsystem(1000, 0.01) )
-    val node3 = NodeRunner("node3", SSsystem(1000, 0.01) )
-    val node4 = NodeRunner("node4", SSsystem(1000, 0.01) )
+	val benchmark = true
+    val node1 = NodeRunner("node1", SSsystem(1000, 0.01), benchmark)
+    val node2 = NodeRunner("node2", SSsystem(1000, 0.01), benchmark)
+    val node3 = NodeRunner("node3", SSsystem(1000, 0.01), benchmark)
+    val node4 = NodeRunner("node4", SSsystem(1000, 0.01), benchmark)
     
     //create a graph 
-    val graph1 = GraphRunner("graph1", new Model() )
+    val graph1 = GraphRunner("graph1", new Model(), benchmark)
 
 	//define execution dependencies
     node1 -> node2 -> node4
@@ -40,7 +41,7 @@ Usage
 ```
 produces the following sequence of execution:
 
-```cmd
+```scala
 
 Node: graph1 start the solve             timestamp: 1304827821311.949000   on thread 27
 Node: node1 start the solve              timestamp: 1304827821312.273000   on thread 35
