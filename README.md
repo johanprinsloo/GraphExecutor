@@ -11,39 +11,48 @@ Usage
 ------
  
 ``` scala
+	//create 4 nodes each with a numeric payload
+    val node1 = NodeRunner("node1", SSsystem(1000, 0.01) )
+    val node2 = NodeRunner("node2", SSsystem(1000, 0.01) )
+    val node3 = NodeRunner("node3", SSsystem(1000, 0.01) )
+    val node4 = NodeRunner("node4", SSsystem(1000, 0.01) )
+    
+    //create a graph 
+    val graph1 = GraphRunner("graph1", new Model() )
 
-    //nodes and their payloads
-    val linsize = 2000
-    val ssize = 1000
-    val fl01 = NodeRunner( "FL01", SSsystem(ssize, 0.01) )
-    val sp01 = NodeRunner( "SP01", LinearModel(linsize) )
-    val hx01 = NodeRunner( "HX01", SSsystem(ssize, 0.01) )
-    val exp1 = NodeRunner( "EXP1", LinearModel(linsize) )
-    val col1 = NodeRunner( "COL1", LinearModel(linsize) )
-    val hx03 = NodeRunner( "HX03", SSsystem(ssize, 0.01) )
-    val pu01 = NodeRunner( "PU01", SSsystem(ssize, 0.01) )
-    val mx02 = NodeRunner( "MX02", LinearModel(linsize) )
-    val hx06 = NodeRunner( "HX06", LinearModel(linsize) )
-    val hx02 = NodeRunner( "HX02", LinearModel(linsize) )
-    val mx01 = NodeRunner( "MX01", LinearModel(linsize) )
-    val cmp1 = NodeRunner( "CMP1", LinearModel(linsize) )
+	//define execution dependencies
+    node1 -> node2 -> node4
+    node1 -> node3 -> node4
+    
+    //subgraph under graph1
+    graph1 ~> node1 ~> node2 ~> node3 ~> node4
+    graph1.setStartNodes( Set(node1) )
+    graph1.setEndNodes( Set(node4) )
 
-    //graph config - tedious and manual - we need a parser
-    sp01 -> hx02
-    sp01 -> hx01 -> mx01
-    fl01 -> hx01 -> col1
-    col1 -> pu01 -> hx06
-    fl01 -> exp1 -> hx03 -> mx02 -> hx02 -> cmp1
-    exp1 -> col1
-    col1 -> mx02
-    hx02 -> mx01
+    graph1 ! "solve"
 
-    //start execution by sending messages to the first two nodes
-    sp01 ! "solve"
-    fl01 ! "solve"
+    graph1.barrier.await()
+
+    BenchMarker reportData
+
+    graph1 ! "stop"
  
 ```
- 
+produces the following sequence of execution:
+
+```cmd
+
+Node: graph1 start the solve             timestamp: 1304827821311.949000   on thread 27
+Node: node1 start the solve              timestamp: 1304827821312.273000   on thread 35
+Node: node1 complete solve               timestamp: 1304827821317.240000   on thread 35
+Node: node3 start the solve              timestamp: 1304827821317.593000   on thread 33
+Node: node2 start the solve              timestamp: 1304827821317.619000   on thread 32
+Node: node2 complete solve               timestamp: 1304827821322.860000   on thread 32
+Node: node3 complete solve               timestamp: 1304827821322.895000   on thread 33
+Node: node4 start the solve              timestamp: 1304827821323.272000   on thread 32
+Node: node4 complete solve               timestamp: 1304827821327.994100   on thread 32
+Node: graph1 complete solve              timestamp: 1304827821328.472200   on thread 27
+``` 
 
 
 
