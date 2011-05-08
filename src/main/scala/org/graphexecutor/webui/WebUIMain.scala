@@ -1,4 +1,5 @@
 package org.graphexecutor.webui
+import java.io.File
 
 
 import javax.servlet.http._
@@ -13,11 +14,18 @@ object WebUIMain {
 
     val context = new ServletContextHandler(ServletContextHandler.SESSIONS) //(ServletContextHandler.NO_SESSIONS SESSIONS)
     context.setContextPath("/")
-    server.setHandler(context)
 
     context.addServlet(new ServletHolder(new GraphServlet()),"/socket/*")
     context.addServlet(new ServletHolder(new DefaultServlet()),"/*")
+    server.setHandler(context)
 
+    println( System.getProperty("user.dir") )
+    println( System.getProperty("jetty.home","../jetty-distribution/target/distribution") )
+    
+    println("ContextHandlers: "+context.getHandlers)
+    println("ContextAttributes: "+context.getBaseResource)
+    println("ContextPath: "+context.getContextPath)
+    
     server.start()
     println(">>> embedded jetty server started. press any key to stop.")
     while (System.in.available() == 0) {

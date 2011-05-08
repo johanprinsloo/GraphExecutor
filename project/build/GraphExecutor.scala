@@ -1,7 +1,7 @@
 import sbt._
 
 
-class GraphExecutorProject(info: ProjectInfo) extends DefaultProject(info)  with ProguardProject
+class GraphExecutorProject(info: ProjectInfo) extends  DefaultWebProject(info) //DefaultProject(info)  with ProguardProject
 {
 
   // repositories
@@ -17,8 +17,8 @@ class GraphExecutorProject(info: ProjectInfo) extends DefaultProject(info)  with
   //dependencies
   val scalala = "org.scalala" %% "scalala" % "1.0.0.RC2-SNAPSHOT"
   val scalatest = "org.scalatest" % "scalatest" % "1.3"
-  val jetty7 = "org.eclipse.jetty" % "jetty-webapp" % "7.1.6.v20100715" % "compile"
-  val jetty7webSocket = "org.eclipse.jetty" % "jetty-websocket" % "7.1.6.v20100715" % "compile"
+  val jetty7 = "org.eclipse.jetty" % "jetty-webapp" % "7.0.2.v20100331" % "compile"
+  val jetty7webSocket = "org.eclipse.jetty" % "jetty-websocket" % "7.0.2.v20100331" % "compile"
   val servlet = "javax.servlet" % "servlet-api" % "2.5" % "compile"
 
   //doc options
@@ -32,10 +32,10 @@ class GraphExecutorProject(info: ProjectInfo) extends DefaultProject(info)  with
   override def mainClass: Option[String] = Some("org.graphexecutor.webui.WebUIMain")
 
   //proguard
-  override def proguardInJars = super.proguardInJars +++ scalaLibraryPath
+  //override def proguardInJars = super.proguardInJars +++ scalaLibraryPath
 
-  override def proguardOptions = List(
-  proguardKeepMain("org.graphexecutor.webui.WebUIMain"))
+  //override def proguardOptions = List(
+  //proguardKeepMain("org.graphexecutor.webui.WebUIMain"))
 
   //tests
   override def testOptions = super.testOptions ++ Seq(TestArgument(TestFrameworks.ScalaTest, "-oD" ))

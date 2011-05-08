@@ -29,8 +29,7 @@ class NodeRunner(val name: String) extends Actor
         case "solve" => solve; reply { name + " solved" }
         case "reset" => reset;  reply { name + " reset" }
         case "exit" => println(name + " stopping"); barrier.unlock ; exit(); reply{  reply { name + " exit" } }
-        case m =>
-          println("unknown message " + m + " to " + name);
+        case  m =>     println("unknown message " + m + " to " + name);
       }
     }
   }
@@ -142,21 +141,21 @@ object NodeRunner {
 
   def apply(name: String): NodeRunner = {
     val n = new NodeRunner(name)
-    n.start()
+    n.start
     return n
   }
 
   def apply(name: String, model: Model): NodeRunner = {
     val n = new NodeRunner(name)
     n.model = model
-    n.start()
+    n.start
     return n
   }
 
   def apply(name: String, model: Model, benchmarker: Boolean): NodeRunner = {
     val n = new NodeRunner(name) with BenchMarker
     n.model = model
-    n.start()
+    n.start
     return n
   }
 
