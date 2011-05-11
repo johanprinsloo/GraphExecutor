@@ -104,9 +104,8 @@ body {
 $(document).ready(function() {  
   
   if(!("WebSocket" in window)) {
-    // we're out of business...
     $('.container').children().remove()
-    $('.container').append($('<p>WebSockets unavailable.<p>'))
+    $('.container').append($('<p>WebSockets not supported by this browser.<p>'))
   } else {
   
       // ------------ config
@@ -147,8 +146,7 @@ $(document).ready(function() {
                  $('#status').removeClass('off zero one two').addClass('one')
               }
               socket.onmessage = function(msg) {
-//                 receivedReply(msg.data+'\n\r') // not sure that's the right thing to do...
-                 receivedReply(msg.data) // not sure that's the right thing to do...
+                 receivedReply(msg.data)
               }
               socket.onclose = function() {
                 message('Socket Status: '+socket.readyState+' (Closed)');
@@ -158,9 +156,6 @@ $(document).ready(function() {
              message('Error'+ex)
           }  
       }
-
-      // ------------ send / receive
-      
       
       function submitExecBox(box) {
         var empty = currentlyEvaluating.length == 0
@@ -180,13 +175,12 @@ $(document).ready(function() {
         var outElem = $('.output', boxElem)
 
         var text = inElem.text()
-        if (text == "" && mode == "run") {  // TODO: should do somewhere else
+        if (text == "" && mode == "run") { 
           if (currentlyEvaluating.length && currentlyEvaluating[0] == boxElem)
             currentlyEvaluating.shift()
             return
         }
         outElem.addClass('overwrite')
-        //$('#replLog').append('scala> '+text+'\n')
 
         try {
           socket.send(mode+":"+text);
@@ -194,7 +188,6 @@ $(document).ready(function() {
           message(exception);
         }
 
-        //inElem.text("") // remove
       }
       
       function receivedReply(msg) {
@@ -232,22 +225,14 @@ $(document).ready(function() {
           inElem.blur()
           var text = inElem.text()
           var len = text.length
-//          inElem.text(text+'\n\r') // why doesn't appendText work?
           var xx = text.split('\n')
           xx.push('')
           inElem.text(xx.join('\n')) // why doesn't appendText work?
           inElem.focus()
           var selection = window.getSelection()
           selection.collapseToEnd()
-  //          selection.removeAllRanges()
-  //          selection.collapse(inElem[0],len)
-  /*          var range = document.createRange()
-          range.setStart(inElem[0].firstChild,len+1)
-          range.setEnd(inElem[0].firstChild,len+5)
-  //          range.deleteContents()
-          selection.addRange(range)
-  //          selection.removeFromDocument()
-  */    }
+        }
+        
         function finishedWithCurrentBox() {
           currentlyEvaluating.shift()
           doExecNext()
