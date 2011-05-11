@@ -1,8 +1,8 @@
 package org.graphexecutor
 
 import scalala.tensor.dense.DenseMatrix
-import scalala.tensor.{Tensor,Tensor1,Tensor2,Vector,Matrix};
-import scalala.tensor.dense.{DenseVector,DenseMatrix};
+import scalala.tensor.{ Tensor, Tensor1, Tensor2, Vector, Matrix };
+import scalala.tensor.dense.{ DenseVector, DenseMatrix };
 import scalala.tensor.sparse._
 //import scalala.tensor.operators._
 import scalala.library._
@@ -20,22 +20,20 @@ class Model {
  * b = Ax
  * solve for x
  */
-class LinearModel(size: Int) extends Model
-{
+class LinearModel( size: Int ) extends Model {
 
-  var b = DenseVector.rand(size)
-  var x = DenseVector.rand(size)
-  var A = DenseMatrix.rand(size, size)
-
+  var b = DenseVector.rand( size )
+  var x = DenseVector.rand( size )
+  var A = DenseMatrix.rand( size, size )
 
   override def solve = {
-     x =  A \ b
-   }
+    x = A \ b
+  }
 }
 
 object LinearModel {
-  def apply(size: Int) = new LinearModel(size)
-  def apply() = new LinearModel(20)
+  def apply( size: Int ) = new LinearModel( size )
+  def apply() = new LinearModel( 20 )
 }
 
 /**
@@ -52,28 +50,27 @@ object LinearModel {
  *   D is the feedthrough matrix
  *
  */
-class SSsystem(statesize: Int, inputsize: Int, outputsize: Int, dt: Double) extends Model
-{
+class SSsystem( statesize: Int, inputsize: Int, outputsize: Int, dt: Double ) extends Model {
 
-  var xdot = DenseVector.rand(statesize)
-  var x = DenseVector.rand(statesize)
-  var u = DenseVector.rand(inputsize)
-  var y = DenseVector.rand(outputsize)
-                
-  var A = DenseMatrix.rand(statesize, statesize)
-  var B = DenseMatrix.rand(statesize, inputsize)
-  var C = DenseMatrix.rand(statesize, statesize)
-  var D = DenseMatrix.rand(statesize, outputsize)
-  
+  var xdot = DenseVector.rand( statesize )
+  var x = DenseVector.rand( statesize )
+  var u = DenseVector.rand( inputsize )
+  var y = DenseVector.rand( outputsize )
+
+  var A = DenseMatrix.rand( statesize, statesize )
+  var B = DenseMatrix.rand( statesize, inputsize )
+  var C = DenseMatrix.rand( statesize, statesize )
+  var D = DenseMatrix.rand( statesize, outputsize )
+
   override def solve = {
-     xdot = A * x  +  B * u
-     x = x + xdot*dt
-     y =  C * x  +  D * u
-   }
+    xdot = A * x + B * u
+    x = x + xdot * dt
+    y = C * x + D * u
+  }
 }
 
 object SSsystem {
-  def apply(size: Int, dt: Double) = new SSsystem(size, size, size, dt)
-  def apply(size: Int) = new SSsystem(size, size, size, 0.1)
-  def apply() = new SSsystem(20,20,20,0.1)
+  def apply( size: Int, dt: Double ) = new SSsystem( size, size, size, dt )
+  def apply( size: Int ) = new SSsystem( size, size, size, 0.1 )
+  def apply() = new SSsystem( 20, 20, 20, 0.1 )
 }

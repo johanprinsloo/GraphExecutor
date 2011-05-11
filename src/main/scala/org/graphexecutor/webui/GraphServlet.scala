@@ -11,47 +11,46 @@ class GraphServlet extends WebSocketServlet {
 
   var classpathstringer = "whatever" //System.getProperty("replhtml.class.path")
 
-  override def doGet(req: HttpServletRequest, res: HttpServletResponse) = {
-    println(req)
-    println(res)
-    getServletContext.getNamedDispatcher("default").forward(req, res)
+  override def doGet( req: HttpServletRequest, res: HttpServletResponse ) = {
+    println( req )
+    println( res )
+    getServletContext.getNamedDispatcher( "default" ).forward( req, res )
   }
 
-  override def doWebSocketConnect(req:HttpServletRequest, protocol:String ) =
+  override def doWebSocketConnect( req: HttpServletRequest, protocol: String ) =
     new GraphWebSocket
 
-  class WebSocketPrintStream(cls: Set[GraphWebSocket]) extends PrintStream(new OutputStream { def write(b: Int) = {} }) {
+  class WebSocketPrintStream( cls: Set[GraphWebSocket] ) extends PrintStream( new OutputStream { def write( b: Int ) = {} } ) {
 
-    override def print(message: String) = {
-      cls.foreach { c => c.outbound.sendMessage(0:Byte, message) }
+    override def print( message: String ) = {
+      cls.foreach { c => c.outbound.sendMessage( 0: Byte, message ) }
     }
-    
-    override def println(message: String) = {
-      clients.foreach { c => c.outbound.sendMessage(0:Byte, message+"\n\r") }
+
+    override def println( message: String ) = {
+      clients.foreach { c => c.outbound.sendMessage( 0: Byte, message + "\n\r" ) }
     }
     override def println() = {
-      clients.foreach { c => c.outbound.sendMessage(0:Byte, "\n\r") }
+      clients.foreach { c => c.outbound.sendMessage( 0: Byte, "\n\r" ) }
     }
 
   }
-
 
   class GraphWebSocket extends WebSocket {
 
-    var outbound:Outbound = _
+    var outbound: Outbound = _
 
-    override def onConnect(outbound:Outbound) = {
-      println("GraphWebSocket onConnect" + outbound)
+    override def onConnect( outbound: Outbound ) = {
+      println( "GraphWebSocket onConnect" + outbound )
       this.outbound = outbound
       clients += this
     }
 
-    override def onMessage(frame:Byte, data:Array[Byte], offset:Int, length:Int) = {
-      println("GraphWebSocket->onMessage : frame:"+frame+" data:"+data+" lenght:"+length)
+    override def onMessage( frame: Byte, data: Array[Byte], offset: Int, length: Int ) = {
+      println( "GraphWebSocket->onMessage : frame:" + frame + " data:" + data + " lenght:" + length )
     }
 
-    override def onMessage(frame:Byte, data:String) = {
-      println("GraphWebSocket->onMessage : frame:"+frame+" data:"+data)
+    override def onMessage( frame: Byte, data: String ) = {
+      println( "GraphWebSocket->onMessage : frame:" + frame + " data:" + data )
     }
 
     override def onDisconnect = clients -= this

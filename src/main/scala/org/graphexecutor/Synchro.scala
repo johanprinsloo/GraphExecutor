@@ -1,26 +1,26 @@
 package org.graphexecutor
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
 
 trait Barrier {
   def await()
 }
 
-class SimpleBarrier(name: String) extends Barrier {
-  val lock = new AtomicBoolean(true)
+class SimpleBarrier( name: String ) extends Barrier {
+  val lock = new AtomicBoolean( true )
   val waiters = new AtomicInteger( 0 )
 
-  def lockup = lock.set(true)
+  def lockup = lock.set( true )
 
-  def unlock = lock.set(false)
+  def unlock = lock.set( false )
 
   def await() = {
 
-    println("barrier " + name + " has " + waiters.incrementAndGet() + " waiter")
+    println( "barrier " + name + " has " + waiters.incrementAndGet() + " waiter" )
     while ( lock.get() ) {
-      Thread.sleep(10)
+      Thread.sleep( 10 )
     }
-    println("barrier " + name + " released")
-    waiters.set(0)
+    println( "barrier " + name + " released" )
+    waiters.set( 0 )
   }
 }

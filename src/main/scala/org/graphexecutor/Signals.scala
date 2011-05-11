@@ -7,27 +7,26 @@ object NodeStatus extends Enumeration {
 
 import NodeStatus._
 
-case class ObserveNodeStatus(source: NodeRunner, status: NodeStatus )
-
+case class ObserveNodeStatus( source: NodeRunner, status: NodeStatus )
 
 trait NodeObserver extends NodeRunner {
-  override def statusChanged(observed: ObserveNodeStatus) = {
-     println("observed status change to " + observed.status + " in " + observed.source + " by " + this)
+  override def statusChanged( observed: ObserveNodeStatus ) = {
+    println( "observed status change to " + observed.status + " in " + observed.source + " by " + this )
   }
 }
 
 trait Observer[T] {
-    def receiveUpdate(subject: T);
+  def receiveUpdate( subject: T );
 }
 
 trait Observable[T] {
-    this: T =>
-  
-    private var observers: List[Observer[T]] = Nil
+  this: T =>
 
-    def addObserver(observer: Observer[T]) = observers = observer :: observers
+  private var observers: List[Observer[T]] = Nil
 
-    def notifyObservers() = observers.foreach(_.receiveUpdate(this))
+  def addObserver( observer: Observer[T] ) = observers = observer :: observers
+
+  def notifyObservers() = observers.foreach( _.receiveUpdate( this ) )
 }
 
 //trait Valuee[T] extends (() => T)
