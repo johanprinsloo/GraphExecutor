@@ -10,14 +10,14 @@ trait BenchMarker extends NodeRunner {
   override def markstartsolve = {
     println( "mark start for " + name )
     elapsedtime = System.nanoTime()
-    BenchMarker.reportSolveStart( elapsedtime, name, currentThread.getId() )
+    BenchMarker.reportSolveStart( elapsedtime, name, Thread.currentThread.getId() )
   }
 
   override def markendsolve = {
     println( "mark end for " + name )
     val temptime = elapsedtime
     elapsedtime = System.nanoTime()
-    BenchMarker.reportSolveComplete( elapsedtime, name, currentThread.getId() )
+    BenchMarker.reportSolveComplete( elapsedtime, name, Thread.currentThread.getId() )
     elapsedtime = elapsedtime - temptime
     println( "\t elapsedtime for " + name + " : " + elapsedtime )
   }
