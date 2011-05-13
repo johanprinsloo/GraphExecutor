@@ -16,3 +16,4 @@ project/plugins/target/
 rebel.xml
 run.bat
 target/
+/*.DS_Store
