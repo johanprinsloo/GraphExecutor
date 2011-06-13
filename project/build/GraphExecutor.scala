@@ -16,7 +16,7 @@ class GraphExecutorProject(info: ProjectInfo) extends  DefaultWebProject(info) /
 
   //dependencies
   val scalala = "org.scalala" %% "scalala" % "1.0.0.RC2-SNAPSHOT"
-  val scalatest = "org.scalatest" %% "scalatest" % "1.6-SNAPSHOT"
+  val scalatest = "org.scalatest" %% "scalatest" % "1.6.1"
   val jetty7 = "org.eclipse.jetty" % "jetty-webapp" % "7.0.2.v20100331" % "compile"
   val jetty7webSocket = "org.eclipse.jetty" % "jetty-websocket" % "7.0.2.v20100331" % "compile"
   val servlet = "javax.servlet" % "servlet-api" % "2.5" % "compile"
