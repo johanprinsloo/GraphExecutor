@@ -8,6 +8,7 @@ import scalala.library.Library._
 import scalala.library.LinearAlgebra._
 import scalala.library.Statistics._
 import scalala.library.Plotting._
+//import scalala.library.Vectors
 import scalala.operators.Implicits._
 
 case class NodeStart( nodeId: String, threadId: Long )
@@ -75,7 +76,9 @@ object BenchMark extends Actor {
     val uThreads = ttset.distinct
 
     //timev = history._1
-    //val x = linspace(0,1);
+    //val x = Vectors.linspace(0,1);
+    
+    val x = DenseVector.range(0,100) / 100.0;
     plot( timev, threadv )
     //hold(true)
     //plot(x, x :^ 3, '.')

@@ -7,12 +7,11 @@ import org.graphexecutor.NodeStatus._
 
 case class GoVote( source: Actor )
 
-class NodeRunner( val name: String ) extends Actor {
+class NodeRunner( val name: String, var model: Model = new Model() ) extends Actor {
   val barrier = new SimpleBarrier( name )
   var dependents: Set[Actor] = Set()
   var sources: scala.collection.mutable.HashMap[Actor, Boolean] = scala.collection.mutable.HashMap()
   val observers: Set[Actor] = Set()
-  var model: Model = new Model()
 
   override def toString() = name
 
@@ -134,24 +133,21 @@ class NodeRunner( val name: String ) extends Actor {
  */
 object NodeRunner {
 
-  def apply( name: String ): NodeRunner = {
-    val n = new NodeRunner( name )
+  private def makeNodeRunner(n: NodeRunner): NodeRunner = {
     n.start
     return n
+  }
+
+  def apply( name: String ): NodeRunner = {
+    makeNodeRunner( new NodeRunner( name ) )
   }
 
   def apply( name: String, model: Model ): NodeRunner = {
-    val n = new NodeRunner( name )
-    n.model = model
-    n.start
-    return n
+    makeNodeRunner( new NodeRunner( name, model ) )
   }
 
   def apply( name: String, model: Model, benchmarker: Boolean ): NodeRunner = {
-    val n = new NodeRunner( name ) with BenchMarker
-    n.model = model
-    n.start
-    return n
+    makeNodeRunner( new NodeRunner( name, model ) with BenchMarker )
   }
 
   def apply( name: String, sources: Set[Actor], dependents: Set[Actor] ) {
