@@ -21,7 +21,7 @@ Usage
     //create a graph 
     val graph1 = GraphRunner("graph1", new Model(), benchmark)
 
-	//define execution dependencies
+    //define execution dependencies
     node1 -> node2 -> node4
     node1 -> node3 -> node4
     
