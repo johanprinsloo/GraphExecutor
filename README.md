@@ -5,7 +5,7 @@ An Actor based framework for creating execution graphs with arbitrary workloads 
 The graph nodes define workloads and the links (edges) create a execution dependency graph. Nodes are executed deterministically as specified by the graph with as much parallelism as allowed by the graph.
 
 Subgraphs can be created and encapsulated in nodes.
-A Graphviz based DSL allows simple programatic construction of graphs.
+A Graphviz/dot based DSL allows simple programatic construction of graphs.
 
 Usage
 ------
