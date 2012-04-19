@@ -2,66 +2,121 @@ package org.graphexecutor.bench
 
 import scalala.tensor.dense._
 import org.graphexecutor._
+import akka.actor._
+import akka.util.Timeout
+import akka.util.duration._
+import signals._
+import compat.Platform
+import akka.dispatch.{Future, Await}
+import akka.pattern._
 
-trait BenchMarker extends NodeRunner {
+case class Register( b : ActorRef)
+case class Unregister( b : ActorRef)
+case class SolveReport( node : String, start : Long, end : Long , thread : Long  )
 
-  var elapsedtime: Long = 0
+class BenchMarker extends Actor {
 
-  override def markstartsolve = {
-    println( "mark start for " + name )
-    elapsedtime = System.nanoTime()
-    BenchMarker.reportSolveStart( elapsedtime, name, Thread.currentThread.getId() )
+  var node : String = ""
+  var solvestart : Long = 0
+  var solvecomplete : Long = 0
+  var threadId : Long = -1
+
+  override def preStart() {
+    BenchController.accumulator ! Register(self)
   }
 
-  override def markendsolve = {
-    println( "mark end for " + name )
-    val temptime = elapsedtime
-    elapsedtime = System.nanoTime()
-    BenchMarker.reportSolveComplete( elapsedtime, name, Thread.currentThread.getId() )
-    elapsedtime = elapsedtime - temptime
-    println( "\t elapsedtime for " + name + " : " + elapsedtime )
+  override def postStop {
+    BenchController.accumulator ! Unregister(self)
+  }
+
+  def receive = {
+    case s : SolveStartReport     => {
+      solvestart  = Platform.currentTime
+      threadId = s.threadId
+      node = sender.toString()
+    }
+    case s : SolveCompleteReport  => {
+      solvecomplete = Platform.currentTime
+      assert(node == sender.toString())
+      BenchController.accumulator ! SolveReport(node, solvestart, solvecomplete, threadId)
+    }
+    case "reset" => {
+      solvestart = 0
+      solvecomplete = 0
+      threadId = -1
+    }
+    case "listNode" => sender ! node
   }
 }
 
-object BenchMarker {
-  var history = scala.collection.mutable.ListBuffer.empty[Tuple4[Double, String, String, Long]]
-  var timestamps = DenseVector( 0, 0 )
-  var activethreads = DenseVector( 0, 0 )
+class Accumulator extends Actor {
+  import BenchController._
+  var registry = collection.mutable.ListBuffer[ActorRef]()
+  var history = collection.immutable.Set[HistEntry]()
+
+  def receive = {
+    case r : Register => registry += r.b
+    case u : Unregister => registry -= u.b
+    case r : SolveReport => history += ((r.node, r.start, r.end, r.thread))
+    case "report" => sender ! history
+    case "clear" => {
+      history = Set.empty
+      registry foreach { a => a ! "reset" }
+      sender ! registry.size
+    }
+    case "size" => sender ! registry.size
+    case "listBenchers" => {
+      val sb = new StringBuilder()
+      registry foreach { bencher =>
+         val fu = bencher ? "listNode"
+         val nodeString = Await.result(fu, 1 second).asInstanceOf[String]
+         sb.append( nodeString + "\n" )
+      }
+      sender ! sb.result()
+    }
+  }
+}
+
+
+object BenchController {
+
+  implicit val timeout = Timeout(5 seconds)
+  type HistEntry = Tuple4[String, Long, Long, Long]
+  var history : Set[HistEntry] = Set.empty
+
+  val accumulator = NodeControl.system.actorOf(Props[Accumulator], name = "benchAccumulator")
 
   def report: String = {
-    // for(n <- history) yield { "Node: %s %s \t\t timestamp: %f   on thread %d\n".format(n._2, n._3, n._1, n._4) }
+    val fu = accumulator ? "report"
+    val history = Await.result(fu, 10 seconds).asInstanceOf[Set[HistEntry]]
     var ret = ""
     history foreach { i =>
-      ret = ret + "Node: %s %s \t\t timestamp: %f   on thread %d\n".format( i._2, i._3, i._1, i._4 )
+      ret = ret + "Node: %s \t\t start: %d  end: %d   on thread %d\n".format( i._1, i._2, i._3, i._4 )
     }
     return ret
   }
 
   def clear = {
-    history.clear()
+    val fu = accumulator ? "clear"
+    Await.result( fu , 5 seconds )
   }
 
-  def reportSolveStart( timestamp: Double, nodeId: String, threadId: Long ) = {
-    synchronized {
-      history += new Tuple4( ( timestamp ) / 1e6, nodeId, "start the solve", threadId )
-    }
+  def size : Int = {
+    val fu = accumulator ? size
+    Await.result(fu, 5 seconds).asInstanceOf[Int]
   }
 
-  def reportSolveComplete( timestamp: Double, nodeId: String, threadId: Long ) = {
-    synchronized {
-      history += new Tuple4( ( timestamp ) / 1e6, nodeId, "complete solve", threadId )
-    }
+  def listBenchers : String = {
+    val fu = accumulator ? "listBenchers"
+    Await.result(fu, 5 seconds).asInstanceOf[String]
   }
 
-  def reportRawdata() = {
-    println( history.toString() )
+  def reportRawdata() : Set[HistEntry] = {
+    history
   }
 
   def reportData() = {
     println( report )
-    //    history foreach { i => 
-    //      println("Node: " + i._2 + " " + i._3   +  "\t\t timestamp : " + i._1 + "\t thread : " + i._4 )
-    //    }
   }
 
 }

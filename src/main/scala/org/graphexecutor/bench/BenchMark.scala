@@ -84,6 +84,6 @@ object BenchMark extends Actor {
     //plot(x, x :^ 3, '.')
     xlabel( "Time Stamp" )
     ylabel( "Thread Occupancy" )
-    saveas( "Bench1.png" ) // save current figure as a .png, eps and pdf also supported
+    saveas( "./Bench.png" ) // save current figure as a .png, eps and pdf also supported
   }
 }

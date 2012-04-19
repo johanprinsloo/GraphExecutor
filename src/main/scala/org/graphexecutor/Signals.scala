@@ -1,5 +1,19 @@
 package org.graphexecutor
 
+import akka.actor.ActorRef
+
+case object signals {
+  case class GoVote( source : ActorRef )
+  case class RegisterDependent( actor : ActorRef )
+  case class RegisterSource( actor : ActorRef )
+  case class RegisterObserver( actor : ActorRef )
+  case class Solveable()
+  case class GetSolveCount()
+  case class SolveStartReport( threadId : Long )
+  case class SolveCompleteReport( )
+  case class AddBenchMarker( actor: ActorRef )
+}
+
 object NodeStatus extends Enumeration {
   type NodeStatus = Value
   val start, complete, reset = Value
