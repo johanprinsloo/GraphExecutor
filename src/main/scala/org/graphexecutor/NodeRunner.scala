@@ -1,37 +1,65 @@
 package org.graphexecutor
 
-import scala.collection.mutable._
 import org.graphexecutor.bench._
 import org.graphexecutor.NodeStatus._
 import akka.util.Timeout
 import akka.util.duration._
-import akka.actor.{Props, ActorSystem, ActorRef, Actor}
-import akka.dispatch.Await
-import akka.pattern.ask
+import akka.pattern.{ask, gracefulStop}
 import signals._
+import akka.dispatch.{ExecutionContext, Future, Await}
+import akka.actor._
 
 object NodeControl {
   val system = ActorSystem("GraphExecutor")
+  implicit val ec = ExecutionContext.defaultExecutionContext(system)
+  implicit val timeout = Timeout(5 seconds)
+
+
+  def stop(n : NodeRunner) = {
+    Await.result( gracefulStop(n.actor, 5 seconds)(NodeControl.system), 5 seconds )
+  }
+
+  /**
+   * Synchronous graceful shutdown of a list of nodes
+   * @param ns : List[NodeRunner]
+   * @return
+   */
+  def stopNodes( ns : List[NodeRunner]) = {
+    val flist = ns.map( n => gracefulStop(n.actor, 5 seconds)(NodeControl.system) )
+    Await.result(Future.sequence(flist), (1*ns.size) seconds)
+  }
+
+  def resetNodes( ns : List[NodeRunner]) = {
+    val flist = ns.map( n => n.actor ? "reset" )
+    Await.result(Future.sequence(flist), (1*ns.size) seconds)
+  }
 }
 
 class Node(val config : NodeRunner, var model: Work ) extends Actor {
   var solveCount = 0
-  var dependents: Set[ActorRef] = Set.empty
-  var sources: scala.collection.mutable.HashMap[ActorRef, Boolean] = scala.collection.mutable.HashMap.empty
-  val observers: Set[ActorRef] = Set.empty
-  val benchmarkers : Set[ActorRef] = Set.empty
+  var dependents = Set[ActorRef]()
+  var observers = Set[ActorRef]()
+  var benchmarkers = Set[ActorRef]()
+  var sources = collection.mutable.HashMap[ActorRef, Boolean]()
 
   def receive = {
         case goVote: GoVote              => canGo( goVote )
-        case dep : RegisterDependent     => dependents += dep.actor
-        case src : RegisterSource        => sources += ( src.actor -> false )
-        case bnc : AddBenchMarker        => benchmarkers += bnc.actor
-        case obs : RegisterObserver      => observers += obs.actor
+        case dep : RegisterDependent     => dependents += dep.actor; sender ! true
+        case src : RegisterSource        => sources += ( src.actor -> false ); sender ! true
+        case bnc : AddBenchMarker        => benchmarkers += bnc.actor; sender ! true
+        case obs : RegisterObserver      => observers += obs.actor; sender ! true
         case observed: ObserveNodeStatus => statusChanged( observed ); config.statusChanged( observed )
         case "solve"                     => solve; sender ! { config.name + " solved" }
         case "reset"                     => reset; sender ! { config.name + " reset" }
         case m : Solveable               => sender ! isNodeSolveable
         case m : GetSolveCount           => sender ! solveCount
+        case m : GetDependents           => sender ! dependents
+        case m : GetSources              => sender ! sources.keySet
+        case m : GetObservers            => sender ! observers
+        case m : GetBenchmarkers         => sender ! benchmarkers
+        case m : IsDependent             => sender ! dependents.contains( m.n.actor )
+        case m : IsSource                => sender ! sources.keySet.contains( m.n.actor )
+        case m : isObserver              => sender ! observers.contains( m.n.actor )
         case m                           => println( "unknown message " + m + " to " + config.name )
   }
 
@@ -40,10 +68,11 @@ class Node(val config : NodeRunner, var model: Work ) extends Actor {
     sources( goVote.source ) = true
 
     if ( sources.values.foldLeft( true )( _ && _ ) ) {
-      println( config.name + " OK to execute.." )
+      println( config.name + " OK to execute.. ")
       solve
     } else {
-      println( config.name + " reference count upvote" )
+      println( config.name + " reference count upvote status: "
+        + (for( v <- sources.values if v == true ) yield v).size   + " / " + sources.size + " upvotes" )
     }
   }
 
@@ -79,14 +108,14 @@ class Node(val config : NodeRunner, var model: Work ) extends Actor {
 
 
   def notifyObservers( status: NodeStatus ) = {
-    observers foreach { observer => observer ! new ObserveNodeStatus( this.asInstanceOf[NodeRunner], status ) }
+    observers foreach { observer => observer ! new ObserveNodeStatus( self, status ) }
   }
 
   def statusChanged( observed: ObserveNodeStatus ) = {
     println("observed status change to " + observed.status + " in " + observed.source + " by " + this)
   }
 
-  def reset = { //TODO: more elegant solution: sources.foreach(src => src._2 = false)  //.forall(_ => false)
+  def reset = {
     for ( source <- sources ) sources( source._1 ) = false
     solveCount = 0
     notifyObservers( NodeStatus.reset )
@@ -98,8 +127,10 @@ class Node(val config : NodeRunner, var model: Work ) extends Actor {
 
 class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
 
-  implicit val timeout = Timeout(5 seconds)
-  val actor = NodeControl.system.actorOf( Props( new Node(this, model) ), name = name )
+  import NodeControl._
+  implicit val ec = ExecutionContext.defaultExecutionContext(system)
+  val actor = system.actorOf( Props( new Node(this, model) ), name = name )
+
   override def toString() = name
 
   def isSolvable : Boolean = {
@@ -108,46 +139,94 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
   }
 
   def ->( that: NodeRunner ): NodeRunner = {
-    that.actor ! RegisterSource( this.actor )
-    actor ! RegisterDependent( that.actor )
+    val f = for {
+      a <-  that.actor ? RegisterSource( this.actor )
+      b <-  actor ? RegisterDependent( that.actor )
+    } yield (a,b)
+    Await.result(f,1 second)
+    println("linked " + this.name + " to " + that.name)
     return that
   }
 
   def ->( thats: Set[NodeRunner] ): NodeRunner = {
     thats foreach { that =>
-      that.actor ! RegisterSource( this.actor )
-      actor ! RegisterDependent( that.actor )
+      val f = for {
+        a <-  that.actor ? RegisterSource( this.actor )
+        b <-  actor ? RegisterDependent( that.actor )
+      } yield (a,b)
+      Await.result(f, 1 second)
     }
     return this
   }
 
   def observe( observee: NodeRunner ) = {
-    observee.actor ! RegisterObserver( this.actor )
+    val f = observee.actor ? RegisterObserver( this.actor )
+    Await.result(f, 1 second)
   }
 
   def ~>>( observee: NodeRunner ): NodeRunner = {
-    observee.actor ! RegisterObserver( this.actor )
+    val f = observee.actor ? RegisterObserver( this.actor )
+    Await.result(f, 1 second)
     return this
   }
 
   def addSource( source: NodeRunner ) = {
-    actor ! RegisterSource( source.actor )
+    val f = actor ? RegisterSource( source.actor )
+    Await.result(f, 1 second)
   }
 
   def addSources( ss: Set[NodeRunner] ) = {
-    ss foreach { source => actor ! RegisterSource( source.actor ) }
+    val flist = ss.map( nd => actor ? RegisterSource( nd.actor ) )  //List[Future[Boolean]]
+    val futureList = Future.sequence(flist)                         //Future[List[Boolean]]
+    Await.result(futureList, 1 second)
   }
 
   def addDependent( dep: NodeRunner ) = {
-    actor ! RegisterDependent( dep.actor )
+    Await.result((actor ? RegisterDependent( dep.actor ) ), 1 second)
   }
 
   def addDependents( ss: Set[NodeRunner] ) = {
-    ss foreach { entry => actor ! RegisterDependent( entry.actor ) }
+    val flist = ss.map( n => actor ? RegisterDependent( n.actor ) )
+    Await.result(Future.sequence(flist), 1 second)
   }
+
+  def dependents : Set[ActorRef] = {
+    val f = actor ? GetDependents
+    return Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
+  }
+
+  def sources : Set[ActorRef] = {
+    val f = actor ? GetSources
+    Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
+  }
+
+  def hasDependent( n : NodeRunner ) : Boolean = {
+    Await.result( (actor ? IsDependent(n) ), 1 second ).asInstanceOf[Boolean]
+  }
+
+  def observers : Set[ActorRef] = {
+    val f = actor ? GetObservers
+    Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
+  }
+
+  def hasObserver( n : NodeObserver ) : Boolean = {
+    Await.result((actor ? isObserver(n) ), 1 second ).asInstanceOf[Boolean]
+  }
+
+  def hasSource( n : NodeRunner ) : Boolean = Await.result( (actor ? IsSource(n) ), 1 second).asInstanceOf[Boolean]
+
+  def getSolveCount : Int = Await.result(( actor ? GetSolveCount() ), 1 second).asInstanceOf[Int]
 
   def statusChanged( observed: ObserveNodeStatus ) = {
     println( "observed status change : " + observed.status + " in " + name )
+  }
+
+  def solveSync = {
+    Await.result(( actor ? "solve" ), 1 second)
+  }
+
+  def solveAsync = {
+    actor ! "solve"
   }
 
   def blockUntilSolved( times: Int = 1, maxhang : Long = 2000L, polltime : Long = 50 ) : Boolean = {
@@ -161,6 +240,16 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
     hangtime < maxhang
   }
 
+
+  def unary_~ = {
+    stopActor
+  }
+
+  def stopActor() : Unit = {
+    val stopped: Future[Boolean] = gracefulStop(actor, 5 seconds)(system)
+    Await.result(stopped, 6 seconds)
+  }
+
 }
 
 /**
@@ -168,6 +257,8 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
  * Cheap simple singleton builder/factory for NodeRunner
  */
 object NodeRunner {
+
+  import NodeControl._
 
   private def makeNodeRunner(n: NodeRunner): NodeRunner = {
     return n
@@ -185,7 +276,7 @@ object NodeRunner {
     val nr = makeNodeRunner( new NodeRunner( aname, model ) )
 
     val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"benchmarker")
-    nr.actor ! AddBenchMarker( bnc )
+    Await.result( (nr.actor ? AddBenchMarker( bnc )), 5 seconds)
     nr
   }
 

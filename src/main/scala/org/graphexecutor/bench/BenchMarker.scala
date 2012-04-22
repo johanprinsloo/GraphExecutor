@@ -7,8 +7,8 @@ import akka.util.Timeout
 import akka.util.duration._
 import signals._
 import compat.Platform
-import akka.dispatch.{Future, Await}
 import akka.pattern._
+import akka.dispatch.{ExecutionContext, Future, Await}
 
 case class Register( b : ActorRef)
 case class Unregister( b : ActorRef)
@@ -22,11 +22,11 @@ class BenchMarker extends Actor {
   var threadId : Long = -1
 
   override def preStart() {
-    BenchController.accumulator ! Register(self)
+    BenchControl.accumulator ! Register(self)
   }
 
   override def postStop {
-    BenchController.accumulator ! Unregister(self)
+    BenchControl.accumulator ! Unregister(self)
   }
 
   def receive = {
@@ -38,7 +38,7 @@ class BenchMarker extends Actor {
     case s : SolveCompleteReport  => {
       solvecomplete = Platform.currentTime
       assert(node == sender.toString())
-      BenchController.accumulator ! SolveReport(node, solvestart, solvecomplete, threadId)
+      BenchControl.accumulator ! SolveReport(node, solvestart, solvecomplete, threadId)
     }
     case "reset" => {
       solvestart = 0
@@ -50,7 +50,13 @@ class BenchMarker extends Actor {
 }
 
 class Accumulator extends Actor {
-  import BenchController._
+
+  import BenchControl._
+  val system = ActorSystem("GraphExecutor")
+  implicit val ec = ExecutionContext.defaultExecutionContext(system)
+  implicit val timeout = Timeout(5 seconds)
+
+
   var registry = collection.mutable.ListBuffer[ActorRef]()
   var history = collection.immutable.Set[HistEntry]()
 
@@ -59,9 +65,17 @@ class Accumulator extends Actor {
     case u : Unregister => registry -= u.b
     case r : SolveReport => history += ((r.node, r.start, r.end, r.thread))
     case "report" => sender ! history
-    case "clear" => {
+    case "reset" => {
       history = Set.empty
-      registry foreach { a => a ! "reset" }
+      registry foreach {
+        a => a ! "reset"
+      }
+      sender ! registry.size
+    }
+    case "clear" => {
+      val flist = registry.map( a => gracefulStop(a, 5 seconds)(NodeControl.system) )
+      Await.result(Future.sequence(flist), (1*registry.size) seconds)
+      registry.clear()
       sender ! registry.size
     }
     case "size" => sender ! registry.size
@@ -75,11 +89,13 @@ class Accumulator extends Actor {
       sender ! sb.result()
     }
   }
+
 }
 
 
-object BenchController {
+object BenchControl {
 
+  import NodeControl._
   implicit val timeout = Timeout(5 seconds)
   type HistEntry = Tuple4[String, Long, Long, Long]
   var history : Set[HistEntry] = Set.empty
@@ -91,18 +107,25 @@ object BenchController {
     val history = Await.result(fu, 10 seconds).asInstanceOf[Set[HistEntry]]
     var ret = ""
     history foreach { i =>
-      ret = ret + "Node: %s \t\t start: %d  end: %d   on thread %d\n".format( i._1, i._2, i._3, i._4 )
+      ret = ret + "Node: %s \t start: %d  end: %d duation: %d  on thread %d\n".format( i._1, i._2, i._3, (i._3 - i._2), i._4 )
     }
     return ret
   }
 
-  def clear = {
+  def clear  = {
     val fu = accumulator ? "clear"
+    history = Set.empty
     Await.result( fu , 5 seconds )
   }
 
+  def reset = {
+    val fu = accumulator ? "reset"
+    history = Set.empty
+    Await.result( fu, 5 seconds )
+  }
+
   def size : Int = {
-    val fu = accumulator ? size
+    val fu = accumulator ? "size"
     Await.result(fu, 5 seconds).asInstanceOf[Int]
   }
 

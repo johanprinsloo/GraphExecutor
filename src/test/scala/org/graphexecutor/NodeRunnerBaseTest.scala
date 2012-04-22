@@ -1,6 +1,6 @@
 package org.graphexecutor
 
-import bench.{BenchController, BenchMarker}
+import bench.{BenchControl, BenchMarker}
 import org.scalatest.FunSuite
 import akka.pattern.ask
 import akka.util.Timeout
@@ -8,9 +8,11 @@ import akka.util.duration._
 import org.graphexecutor.signals.GetSolveCount
 import org.scalatest.matchers.ShouldMatchers
 import akka.actor.{PoisonPill, ActorRef}
-import akka.dispatch.{Future, Await}
 import akka.pattern.gracefulStop
 import org.scalatest.Assertions._
+import scala.Int
+import akka.dispatch.{Await, Future}
+import NodeControl._
 
 
 class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
@@ -26,10 +28,13 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     val c1 = Await.result( fu1 , 5 seconds).asInstanceOf[Int]
     c1 should be (0)
 
-    node.actor ! "solve"
-    val fu2 = node.actor ? GetSolveCount()
-    val c2 = Await.result( fu2 , 5 seconds).asInstanceOf[Int]
-    c2 should be (1)
+    val fu2 = node.actor ? "solve"
+    val c2 = Await.result( fu2 , 5 seconds).asInstanceOf[String]
+    c2 should be ("testnode1 solved")
+
+    val fu3 = node.actor ? GetSolveCount()
+    val c3 = Await.result( fu3 , 5 seconds).asInstanceOf[Int]
+    c3 should be (1)
 
     val stopped: Future[Boolean] = gracefulStop(node.actor, 5 seconds)(NodeControl.system)
     val stop = Await.result(stopped, 6 seconds)
@@ -41,7 +46,36 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     assert( n.isInstanceOf[NodeRunner] === true, "NodeRunner Type check")
     assert( n.actor.isInstanceOf[ActorRef] === true, "NodeRunner Actor type check")
     assert( n.isSolvable === true )
-    n.actor ! PoisonPill
+    n.stopActor
+  }
+
+  test("basic benchmark test") {
+    BenchControl.size should be (0)
+    val n1 = NodeRunner("node1btest", new NoopWork(), true)
+    val n2 = NodeRunner("node2btest", new NoopWork(), true)
+
+
+    n1 -> n2
+    n1.solveAsync
+    n2.blockUntilSolved(1)
+
+    BenchControl.size should be (2)
+
+    val bdata = BenchControl.reportRawdata()
+
+    val rs = for (
+      i <- bdata
+    ) yield i._1
+    println(">>>bnchdata:" + rs)
+
+    BenchControl.reportData()
+
+    BenchControl.clear
+    BenchControl.size should be (0)
+
+    ~n1
+    ~n2
+
   }
 
   test("simple dependency config test") {
@@ -58,21 +92,24 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     val solved  = Await.result(f2,2 seconds).asInstanceOf[Int]
     solved should be (1)
 
-    node1.actor ! PoisonPill
-    node2.actor ! PoisonPill
+    node1.stopActor()
+    node2.stopActor()
   }
 
 
   test("mutiple node creation with BenchMarker mixed in and significant model load") {
-    val n1 = NodeRunner("n1", SSsystem(1000, 0.01), true )
-    val n2 = NodeRunner("n2", SSsystem(1000, 0.01), true )
-    val n3 = NodeRunner("n3", SSsystem(1000, 0.01), true )
-    val n4 = NodeRunner("n4", SSsystem(1000, 0.01), true )
-    val n5 = NodeRunner("n5", SSsystem(1000, 0.01), true )
-    val n6 = NodeRunner("n6", SSsystem(1000, 0.01), true )
-    val n7 = NodeRunner("n7", SSsystem(1000, 0.01), true )
-    val n8 = NodeRunner("n8", SSsystem(1000, 0.01), true )
-    val n0 = NodeRunner("n0")
+    val scale = 20  //5000 -> 6 Gb heap
+    val dt = 0.00001
+    val benchmark = true
+    val n1 = NodeRunner("n1", SSsystem(scale, dt), benchmark )
+    val n2 = NodeRunner("n2", SSsystem(scale, dt), benchmark )
+    val n3 = NodeRunner("n3", SSsystem(scale, dt), benchmark )
+    val n4 = NodeRunner("n4", SSsystem(scale, dt), benchmark )
+    val n5 = NodeRunner("n5", SSsystem(scale, dt), benchmark )
+    val n6 = NodeRunner("n6", SSsystem(scale, dt), benchmark )
+    val n7 = NodeRunner("n7", SSsystem(scale, dt), benchmark )
+    val n8 = NodeRunner("n8", SSsystem(scale, dt), benchmark )
+    val n0 = NodeRunner("n0", new NoopWork, benchmark )
 
     n1 -> n0
     n2 -> n0
@@ -84,10 +121,8 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     n8 -> n0
 
     assert(n1.isInstanceOf[NodeRunner] === true)
-    val bnc = BenchController.listBenchers
+    val bnc = BenchControl.listBenchers
     //info(">>Benchmarking nodes: \n" + bnc)
-
-    BenchController clear
 
     n1.actor ! "solve"
     n2.actor ! "solve"
@@ -98,93 +133,15 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     n7.actor ! "solve"
     n8.actor ! "solve"
 
-    val f = n8.actor ? "solve"
     val solved  = n0.blockUntilSolved()
     solved should be (true)
 
-    n1.actor ! PoisonPill
-    n2.actor ! PoisonPill
-    n3.actor ! PoisonPill
-    n4.actor ! PoisonPill
-    n5.actor ! PoisonPill
-    n6.actor ! PoisonPill
-    n7.actor ! PoisonPill
-    n0.actor ! PoisonPill
+    BenchControl reportData
 
-    BenchController reportData
+    BenchControl.clear
+    BenchControl.listBenchers should be ("")
+
+    NodeControl stopNodes( n1::n2::n3::n4::n5::n6::n7::Nil )
   }
-//
-//
-//  test("node configuration test - test for correct node connections") {
-//    val n1 = NodeRunner("n1", new NoopWork())
-//    val n2 = NodeRunner("n1", new NoopWork())
-//    val n3 = NodeRunner("n1", new NoopWork())
-//
-//    n1 -> n2 -> n3
-//
-//    //correct dependents
-//    assert( n1.dependents.contains(n2) === true )
-//    assert( n2.dependents.contains(n3) === true )
-//
-//    //correct sources
-//    assert( n2.sources.contains(n1) === true )
-//    assert( n3.sources.contains(n2) === true )
-//
-//    //correct source init
-//    assert( n2.sources.get(n1).get === false )
-//    assert( n3.sources.get(n2).get === false )
-//  }
-//
-//  test("multi-node creation, execution with BenchMarking and barrier wait ") {
-//    val n1 = new NodeRunner("n1") with BenchMarker
-//    val n2 = new NodeRunner("n2") with BenchMarker
-//    val n3 = new NodeRunner("n3") with BenchMarker
-//
-//    n1 -> n2 -> n3
-//    n1.start
-//    n2.start
-//    n3.start
-//
-//    BenchMarker clear
-//
-//    n1 ! "solve"
-//    n3.barrier.await
-//
-//    //test for solve fire
-//    assert( n2.sources.values.foldLeft(true)(_ && _) === true )
-//    assert( n3.sources.values.foldLeft(true)(_ && _) === true )
-//
-//    //benchmarker output
-//    BenchMarker reportData
-//  }
-//
-//    test("multi-node creation, execution with observation from other actors") {
-//    val n1 = new NodeRunner("n1") with BenchMarker
-//    val n2 = new NodeRunner("n2") with BenchMarker
-//    val n3 = new NodeRunner("n3") with BenchMarker
-//    val observer = new NodeRunner("observer") with NodeObserver
-//    n1 -> n2 -> n3
-//    observer ~>> n1 ~>> n2 ~>> n3
-//
-//    BenchMarker clear
-//
-//    assert( n1.observers.contains(observer) === true )
-//    assert( n2.observers.contains(observer) === true )
-//    assert( n3.observers.contains(observer) === true )
-//
-//    observer.start
-//    n1.start
-//    n2.start
-//    n3.start
-//
-//    n1 ! "solve"
-//    n3.barrier.await
-//
-//    //test for solve fire
-//    assert( n2.sources.values.foldLeft(true)(_ && _) === true )
-//    assert( n3.sources.values.foldLeft(true)(_ && _) === true )
-//
-//    //benchmarker output
-//    BenchMarker reportData
-//  }
+
 }

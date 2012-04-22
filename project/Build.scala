@@ -7,13 +7,15 @@ object Build extends sbt.Build {
 
   lazy val myProject = Project("GraphExecutor", file("."))
     .settings(
-      organization  := "com.gridx",
-      version       := "1.0-SNAPSHOT",
-      scalaVersion  := "2.9.1",
-      scalacOptions := Seq("-deprecation", "-encoding", "utf8"),
-      pomExtra      := addToPom,
+      organization      := "com.gridx",
+      version           := "1.0-SNAPSHOT",
+      scalaVersion      := "2.9.1",
+      scalacOptions     := Seq("-deprecation", "-encoding", "utf8"),
+      javaOptions       := Seq("-Xms512M", "-Xmx4096M"),
+      initialCommands   := Console.akkaImports,
+      pomExtra          := addToPom,
       parallelExecution := false,
-      resolvers     ++= Dependencies.resolutionRepos,
+      resolvers           ++= Dependencies.resolutionRepos,
       libraryDependencies ++= Seq(
         Compile.actor,
         Compile.io_core,
@@ -100,4 +102,19 @@ object MavenSpecifics {
         </plugins>
       </build>
     )
+}
+
+object Console {
+  val akkaImports = {
+     """
+      import akka.actor.{Props, ActorSystem, ActorRef, Actor}
+      import akka.dispatch.{ ExecutionContext, Promise }
+      import akka.dispatch.Await
+      import akka.pattern.ask
+      import akka.util.Timeout
+      import akka.util.duration._
+      implicit val timeout = Timeout(5 seconds)
+      val system = ActorSystem("GraphExecutorConsole")
+    """
+  }
 }
