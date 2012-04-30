@@ -37,7 +37,11 @@ Usage
     ~graph1  //stop gracefully
  
 ```
-produces the following sequence of execution:
+**Which defines the following execution graph:**
+
+![SimpleGraph](https://github.com/johanprinsloo/GraphExecutor/wiki/images/simplegraph.png)
+
+**And produces the following sequence of execution:**
 
 ```scala
 
