@@ -30,13 +30,11 @@ Usage
     graph1.setStartNodes( Set(node1) )
     graph1.setEndNodes( Set(node4) )
 
-    graph1 ! "solve"
-
-    graph1.barrier.await()
+    graph1.solveSync()
 
     BenchMarker reportData
 
-    graph1 ! "stop"
+    ~graph1  //stop gracefully
  
 ```
 produces the following sequence of execution:
