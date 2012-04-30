@@ -148,6 +148,11 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
     return that
   }
 
+  /**
+   * TODO test and debug
+   * @param thats
+   * @return
+   */
   def ->( thats: Set[NodeRunner] ): NodeRunner = {
     thats foreach { that =>
       val f = for {
@@ -156,6 +161,7 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
       } yield (a,b)
       Await.result(f, 1 second)
     }
+    println("linked " + this.name + " to " + thats)
     return this
   }
 
@@ -221,11 +227,11 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
     println( "observed status change : " + observed.status + " in " + name )
   }
 
-  def solveSync = {
+  def solveSync() = {
     Await.result(( actor ? "solve" ), 1 second)
   }
 
-  def solveAsync = {
+  def solveAsync() = {
     actor ! "solve"
   }
 
@@ -238,6 +244,11 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
       solvec = Await.result( fu, 5 seconds ).asInstanceOf[Int]
     }
     hangtime < maxhang
+  }
+
+  def reset() = {
+    val flist = actor ? "reset"
+    Await.result(flist, 1 seconds)
   }
 
 

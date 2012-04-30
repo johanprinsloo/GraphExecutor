@@ -21,13 +21,13 @@ case object signals {
   case class AddBenchMarker( actor: ActorRef )
 }
 
+
 object NodeStatus extends Enumeration {
   type NodeStatus = Value
   val start, complete, reset = Value
 }
 
 import NodeStatus._
-
 case class ObserveNodeStatus( source: ActorRef, status: NodeStatus )
 
 trait NodeObserver extends NodeRunner {
@@ -49,3 +49,5 @@ trait Observable[T] {
 
   def notifyObservers() = observers.foreach( _.receiveUpdate( this ) )
 }
+
+

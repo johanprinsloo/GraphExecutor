@@ -92,6 +92,22 @@ class NodeRunnerAPItest extends FunSuite with ShouldMatchers {
 
   }
 
+  test("nodes should reset execution stataus correctly") {
+    val testnode = NodeRunner("testnode")
+
+    ( testnode getSolveCount ) should be (0)
+    testnode.solveSync()
+    testnode.blockUntilSolved(1)
+
+    ( testnode getSolveCount ) should be (1)
+    testnode.solveSync()
+    testnode.blockUntilSolved(2)
+    ( testnode getSolveCount ) should be (2)
+
+    testnode.reset()
+    ( testnode getSolveCount ) should be (0)
+  }
+
 
 }
 
