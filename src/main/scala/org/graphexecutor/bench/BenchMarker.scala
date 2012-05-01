@@ -52,7 +52,7 @@ class BenchMarker extends Actor {
 class Accumulator extends Actor {
 
   import BenchControl._
-  val system = ActorSystem("GraphExecutor")
+  val system = NodeControl.system
   implicit val ec = ExecutionContext.defaultExecutionContext(system)
   implicit val timeout = Timeout(5 seconds)
 
@@ -73,9 +73,11 @@ class Accumulator extends Actor {
       sender ! registry.size
     }
     case "clear" => {
+      println("clearing benchmarking accumulator from: " + registry.size + " entries")
       val flist = registry.map( a => gracefulStop(a, 5 seconds)(NodeControl.system) )
-      Await.result(Future.sequence(flist), (1*registry.size) seconds)
+      Await.result(Future.sequence(flist), 10 seconds)
       registry.clear()
+      println("\t to : " + registry.size + " entries")
       sender ! registry.size
     }
     case "size" => sender ! registry.size

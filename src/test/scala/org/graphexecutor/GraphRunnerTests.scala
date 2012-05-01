@@ -7,40 +7,81 @@ import org.scalatest.matchers.ShouldMatchers
 
 
 class GraphRunnerTests extends FunSuite with ShouldMatchers {
-//  test("simple graph execution") {
-//    val graph = new GraphRunner("testgraph1")
-//
-//    assert(graph.isInstanceOf[NodeRunner] === true, "Graph is of class NodeRunner")
-//    assert(graph.isInstanceOf[GraphRunner] === true, "Graph is of class GraphRunner")
-//
-//    val t1 = graph.solveSync()
-//    t1 should be (true)
-//  }
+  test("simple graph execution") {
+    val graph = new GraphRunner("testgraph1")
 
-    test("graph with internal nodes") {
-      val node1 = NodeRunner("node1", SSsystem(1000, 0.01), true )
-      val node2 = NodeRunner("node2", SSsystem(1000, 0.01), true )
-      val node3 = NodeRunner("node3", SSsystem(1000, 0.01), true )
-      val graph1 = GraphRunner("graph1", new NoopWork(), true )
+    assert(graph.isInstanceOf[NodeRunner] === true, "Graph is of class NodeRunner")
+    assert(graph.isInstanceOf[GraphRunner] === true, "Graph is of class GraphRunner")
 
-      node1 -> node2 -> node3
-      graph1 ~> node1 ~> node2 ~> node3
-      graph1.setStartNodes( Set(node1) )
-      graph1.setEndNodes( Set(node3) )
+    val t1 = graph.solveSync()
+    t1 should be(true)
+  }
 
-      //correct configuration
+  test("graph with internal nodes") {
+    BenchControl clear
+    val node1 = NodeRunner("node1", SSsystem(1000, 0.01), true)
+    val node2 = NodeRunner("node2", SSsystem(1000, 0.01), true)
+    val node3 = NodeRunner("node3", SSsystem(1000, 0.01), true)
+    val graph1 = GraphRunner("graph", new NoopWork(), true)
 
-      graph1.solveSync() should be (true)
+    node1 -> node2 -> node3
+    graph1 ~> node1 ~> node2 ~> node3
+    graph1.setStartNodes(Set(node1))
+    graph1.setEndNodes(Set(node3))
 
-      BenchControl reportData
+    //correct configuration
+    //test correct configuration
+    node1.hasDependent(node2) should be(true)
+    node2.hasDependent(node3) should be(true)
+    node2.hasSource(node1) should be(true)
+    node3.hasSource(node2) should be(true)
 
-      ~graph1
+    graph1.snode.hasDependent(node1) should be(true)
+    graph1.enode.hasSource(node3) should be(true)
+    graph1.enode.hasSource(graph1) should be(true)
+    graph1.snode.hasDependent(graph1) should be(true)
 
-    }
+    graph1.solveSync() should be(true)
 
+    BenchControl reportData
+
+    ~graph1
+
+  }
+
+  test("graph configuration with symbol operators") {
+    BenchControl clear
+    val node1 = NodeRunner("node1a", SSsystem(1000, 0.01), true)
+    val node2 = NodeRunner("node2a", SSsystem(1000, 0.01), true)
+    val node3 = NodeRunner("node3a", SSsystem(1000, 0.01), true)
+    val graph1 = GraphRunner("graph1a", new NoopWork(), true)
+
+    node1 -> node2 -> node3 //execution dependencies
+    graph1 ~~> node1 ~> node2 ~> node3 //graph membership
+    graph1 <~~ node3 //end node
+
+    //test correct configuration
+    node1.hasDependent(node2) should be(true)
+    node2.hasDependent(node3) should be(true)
+    node2.hasSource(node1) should be(true)
+    node3.hasSource(node2) should be(true)
+
+    graph1.snode.hasDependent(node1) should be(true)
+    graph1.enode.hasSource(node3) should be(true)
+    graph1.enode.hasSource(graph1) should be(true)
+    graph1.snode.hasDependent(graph1) should be(true)
+
+    graph1.solveSync() should be(true)
+
+    BenchControl reportData
+
+    ~graph1
+
+  }
 
 
 }
+
 //
 
 //

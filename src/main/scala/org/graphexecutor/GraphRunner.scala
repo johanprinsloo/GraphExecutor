@@ -14,6 +14,7 @@ class GraphRunner( name: String ) extends NodeRunner( name ) {
   var nodes: Set[NodeRunner] = Set()
   val snode = NodeRunner( name + "_startnode" )
   val enode = NodeRunner( name + "_endnode" )
+  snode -> this
   this ~>> enode
   this -> enode  //internal node is a default source to the enode
 
@@ -24,6 +25,7 @@ class GraphRunner( name: String ) extends NodeRunner( name ) {
     snodes foreach { sn =>
       snode -> sn
     }
+
   }
 
   def setEndNodes( enodes: Set[NodeRunner] ) = {
@@ -34,6 +36,27 @@ class GraphRunner( name: String ) extends NodeRunner( name ) {
     nodes += internalnode
     return this
   }
+
+  def ~~>( startnode: NodeRunner): GraphRunner = {
+    snode -> startnode
+    return this
+  }
+
+  def ~~>( startnodes: List[NodeRunner]): GraphRunner = {
+    startnodes foreach { sn => snode -> sn }
+    return this
+  }
+
+  def <~~( endnode: NodeRunner ): GraphRunner = {
+    endnode -> enode
+    return this
+  }
+
+  def <~~( endnodes: List[NodeRunner] ): GraphRunner = {
+    endnodes foreach { en => en -> enode }
+    return this
+  }
+
 
   override def toString() = name
 
