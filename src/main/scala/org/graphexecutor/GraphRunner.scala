@@ -1,6 +1,5 @@
 package org.graphexecutor
 
-import scala.collection.mutable._
 import org.graphexecutor.bench._
 import org.graphexecutor.signals._
 import akka.dispatch.{Future, Await}
@@ -9,23 +8,47 @@ import akka.util.duration._
 import akka.pattern.ask
 import akka.actor.{Props, ActorRef}
 
-class GraphRunner( name: String ) extends NodeRunner( name ) {
+case class GxNode(){}
+case class GxLink(){}
+
+trait AdminGraph[N,L] {
+  def addNode( n : N )
+  def delNode( n : N )
+
+  def addLink( l : L )
+  def delLink( l : L )
+}
+
+trait ShadowGraph extends AdminGraph[GxNode,GxLink] {
+  var nodes = List[GxNode]()
+  var links = List[GxLink]()
+
+  def addNode( n : GxNode )  = { nodes += n }
+  def delNode( n : GxNode )  = { nodes -= n }
+  def addLink( l : GxLink )  = { links += l }
+  def delLink( l : GxLink )  = { links -= l }
+}
+
+class GraphRunner[G <: AdminGraph]( name: String, shadowgraph : G ) extends NodeRunner( name )  {
   implicit val timeout = Timeout(5 seconds)
   var nodes: Set[NodeRunner] = Set()
   val snode = NodeRunner( name + "_startnode" )
   val enode = NodeRunner( name + "_endnode" )
-  snode -> this
-  this ~>> enode
-  this -> enode  //internal node is a default source to the enode
+
+  //snode -> this the famous graph virtual entry node paradox
+  snode.registerDependent( this )
+  Await.result( actor ? RegisterSource( snode.actor ), 1 second)
+
+  //this -> enode  //internal node is a default source to the enode
+  enode.registerSource(this)
+  Await.result(actor ? RegisterDependent( enode.actor ), 1 second)
 
   nodes += ( snode, enode )
 
   def setStartNodes( snodes: Set[NodeRunner] ) = {
-    //snode -> snodes  TODO
     snodes foreach { sn =>
       snode -> sn
     }
-
   }
 
   def setEndNodes( enodes: Set[NodeRunner] ) = {
@@ -57,6 +80,42 @@ class GraphRunner( name: String ) extends NodeRunner( name ) {
     return this
   }
 
+  /**
+   * TODO remove bleed
+   * @param that
+   * @return
+   */
+  override def ->( that: NodeRunner ): NodeRunner = {
+    that.registerSource(this.enode)
+    this.enode.registerDependent(that)
+    println("linked (g) " + this.enode.name + " to " + that.name)
+    return that
+  }
+
+  override def registerSource( node : NodeRunner ) = {
+    snode.registerSource( node )
+  }
+
+  override def registerDependent( node : NodeRunner ) = {
+    enode.registerDependent( node )
+  }
+
+  override def hasDependent( n : NodeRunner ) : Boolean = {
+    enode.hasDependent(n)
+  }
+
+  override def hasSource( n : NodeRunner ) : Boolean = {
+    snode.hasSource(n)
+  }
+
+  override def dependents : Set[ActorRef] = {
+    enode.dependents
+  }
+
+  override def sources : Set[ActorRef] = {
+    println("graph sources")
+    snode.sources
+  }
 
   override def toString() = name
 
@@ -114,7 +173,7 @@ object GraphRunner {
 
   def apply( aname: String, model: Work, benchmarker: Boolean ): GraphRunner = {
     val n = new GraphRunner( aname )
-    val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"benchmarker")
+    val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"_benchmarker")
     n.model = model
     Await.result( (n.actor ? AddBenchMarker( bnc )), 5 seconds)
     return n

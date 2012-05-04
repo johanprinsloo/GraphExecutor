@@ -54,7 +54,7 @@ class Node(val config : NodeRunner, var model: Work ) extends Actor {
         case m : Solveable               => sender ! isNodeSolveable
         case m : GetSolveCount           => sender ! solveCount
         case m : GetDependents           => sender ! dependents
-        case m : GetSources              => sender ! sources.keySet
+        case m : GetSources              => sender ! getSourceKeys
         case m : GetObservers            => sender ! observers
         case m : GetBenchmarkers         => sender ! benchmarkers
         case m : IsDependent             => sender ! dependents.contains( m.n.actor )
@@ -74,6 +74,12 @@ class Node(val config : NodeRunner, var model: Work ) extends Actor {
       println( config.name + " reference count upvote status: "
         + (for( v <- sources.values if v == true ) yield v).size   + " / " + sources.size + " upvotes" )
     }
+  }
+
+  def getSourceKeys : scala.collection.immutable.Set[ActorRef] = {
+    val keys: scala.collection.immutable.Set[ActorRef] = sources.keySet.toSet
+    println( self.path.name + " sources keyset:  " + keys )
+    keys
   }
 
   def isConnected : Boolean = !dependents.isEmpty && !sources.isEmpty
@@ -139,13 +145,32 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
   }
 
   def ->( that: NodeRunner ): NodeRunner = {
-    val f = for {
-      a <-  that.actor ? RegisterSource( this.actor )
-      b <-  actor ? RegisterDependent( that.actor )
-    } yield (a,b)
-    Await.result(f,1 second)
+    that.registerSource(this)
+    this.registerDependent(that)
     println("linked " + this.name + " to " + that.name)
     return that
+  }
+
+  /**
+   * TODO remove bleed
+   * @param that
+   * @return
+   */
+  def ->( that: GraphRunner ): NodeRunner = {
+    that.registerSource(this)
+    this.registerDependent(that.snode)
+    println("linked(g) " + this.name + " to " + that.snode.name)
+    return that
+  }
+
+  def registerSource( node : NodeRunner ) = {
+    val f = actor ? RegisterSource( node.actor )
+    Await.result(f, 1 second)
+  }
+
+  def registerDependent( node : NodeRunner ) = {
+    val f = actor ? RegisterDependent( node.actor )
+    Await.result(f, 1 second)
   }
 
   /**
@@ -197,21 +222,28 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
   }
 
   def dependents : Set[ActorRef] = {
-    val f = actor ? GetDependents
-    return Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
+    val f = ask( actor, GetDependents() ).mapTo[Set[ActorRef]]
+    return Await.result(f, 5 seconds)
   }
 
   def sources : Set[ActorRef] = {
-    val f = actor ? GetSources
-    Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
+    val f = ask( actor, GetSources() ).mapTo[Set[ActorRef]]
+    Await.result(f, 5 seconds)
   }
 
   def hasDependent( n : NodeRunner ) : Boolean = {
     Await.result( (actor ? IsDependent(n) ), 1 second ).asInstanceOf[Boolean]
   }
 
+  def hasDependents( ln : List[NodeRunner] ) : Boolean = {
+    val lf = ln.map( n => ask( actor, IsDependent(n) ).mapTo[Boolean] )   // list of future booleans
+    val fl = Future.sequence(lf)                                          // future list of booleans
+    val rl = Await.result( fl , 5 seconds )                               // list of present booleans
+    rl.foldLeft(true)( _ && _ )
+  }
+
   def observers : Set[ActorRef] = {
-    val f = actor ? GetObservers
+    val f = actor ? GetObservers()
     Await.result(f, 1 second).asInstanceOf[Set[ActorRef]]
   }
 
@@ -220,6 +252,12 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
   }
 
   def hasSource( n : NodeRunner ) : Boolean = Await.result( (actor ? IsSource(n) ), 1 second).asInstanceOf[Boolean]
+
+  def hasSources( ln : List[NodeRunner] ) : Boolean = {
+    val fl = ln.map( n => ask( actor, IsSource(n) ).mapTo[Boolean] )
+    val rl = Await.result( Future.sequence(fl) , 1 second )
+    rl.foldLeft(true)( _ && _ )
+  }
 
   def getSolveCount : Int = Await.result(( actor ? GetSolveCount() ), 1 second).asInstanceOf[Int]
 
@@ -256,6 +294,11 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
     stopActor
   }
 
+  def ~ (node : NodeRunner) : NodeRunner = {
+    ~node
+    this
+  }
+
   def stopActor() : Unit = {
     val stopped: Future[Boolean] = gracefulStop(actor, 5 seconds)(system)
     Await.result(stopped, 6 seconds)
@@ -286,7 +329,7 @@ object NodeRunner {
   def apply( aname: String, model: Work, benchmarker: Boolean ): NodeRunner = {
     val nr = makeNodeRunner( new NodeRunner( aname, model ) )
 
-    val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"benchmarker")
+    val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"_benchmarker")
     Await.result( (nr.actor ? AddBenchMarker( bnc )), 5 seconds)
     nr
   }

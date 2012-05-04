@@ -16,7 +16,7 @@ case class SolveReport( node : String, start : Long, end : Long , thread : Long 
 
 class BenchMarker extends Actor {
 
-  var node : String = ""
+  var node = ""
   var solvestart : Long = 0
   var solvecomplete : Long = 0
   var threadId : Long = -1
@@ -32,12 +32,15 @@ class BenchMarker extends Actor {
   def receive = {
     case s : SolveStartReport     => {
       solvestart  = Platform.currentTime
+      println(">> solvestart report from " + sender.path.name + " to " + self.path.name)
       threadId = s.threadId
       node = sender.toString()
     }
     case s : SolveCompleteReport  => {
       solvecomplete = Platform.currentTime
+      println(">> solvecomplete report from " + node + " to " + self.path.name)
       assert(node == sender.toString())
+      println("report " + node + " complete")
       BenchControl.accumulator ! SolveReport(node, solvestart, solvecomplete, threadId)
     }
     case "reset" => {
@@ -45,7 +48,7 @@ class BenchMarker extends Actor {
       solvecomplete = 0
       threadId = -1
     }
-    case "listNode" => sender ! node
+    case "listNode" => sender ! self.path.name
   }
 }
 
@@ -76,11 +79,13 @@ class Accumulator extends Actor {
       println("clearing benchmarking accumulator from: " + registry.size + " entries")
       val flist = registry.map( a => gracefulStop(a, 5 seconds)(NodeControl.system) )
       Await.result(Future.sequence(flist), 10 seconds)
+      history = Set.empty
       registry.clear()
       println("\t to : " + registry.size + " entries")
       sender ! registry.size
     }
     case "size" => sender ! registry.size
+    case "numreports" => sender ! history.size
     case "listBenchers" => {
       val sb = new StringBuilder()
       registry foreach { bencher =>
@@ -97,12 +102,16 @@ class Accumulator extends Actor {
 
 object BenchControl {
 
-  import NodeControl._
   implicit val timeout = Timeout(5 seconds)
   type HistEntry = Tuple4[String, Long, Long, Long]
   var history : Set[HistEntry] = Set.empty
 
   val accumulator = NodeControl.system.actorOf(Props[Accumulator], name = "benchAccumulator")
+
+  def numreports : Int = {
+    val fu = accumulator ? "numreports"
+    Await.result( fu, 5 seconds ).asInstanceOf[Int]
+  }
 
   def report: String = {
     val fu = accumulator ? "report"
@@ -114,10 +123,11 @@ object BenchControl {
     return ret
   }
 
-  def clear  = {
+  def clear() : Boolean  = {
     val fu = accumulator ? "clear"
     history = Set.empty
     Await.result( fu , 5 seconds )
+    true
   }
 
   def reset = {
@@ -140,8 +150,21 @@ object BenchControl {
     history
   }
 
-  def reportData() = {
-    println( report )
+  def reportData() : String = {
+    blockUntilReported()
+    report
+  }
+
+  def blockUntilReported( maxhang : Long = 5000L, polltime : Long = 250 ) : Boolean = {
+    var solvec = false
+    var hangtime = 0L
+    println("report in for " + size + " benchmarkers")
+    while( numreports < size && hangtime < maxhang ) {
+      println("reporttick " + numreports)
+      if(!solvec) Thread.sleep(polltime); hangtime = hangtime + polltime
+    }
+    println("report done")
+    hangtime < maxhang
   }
 
 }

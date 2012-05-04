@@ -18,6 +18,8 @@ object Build extends sbt.Build {
       resolvers           ++= Dependencies.resolutionRepos,
       libraryDependencies ++= Seq(
         Compile.actor,
+        Compile.graph_core,
+        Compile.graph_json,
         Compile.io_core,
         Compile.io_file,
         Compile.scalala,
@@ -43,6 +45,7 @@ object Dependencies {
     val io         = "0.4.0"
     val scalala    = "1.0.0.RC2-SNAPSHOT"
     val akka       = "2.0.1"
+    val graph      = "1.4.3"
     val scalatest  = "1.7.1"
     val junit      = "4.8.1"
     val slf4j      = "1.6.4"
@@ -52,6 +55,8 @@ object Dependencies {
   object Compile {
     val io_core    = "com.github.scala-incubator.io" %% "scala-io-core"  % V.io        % "compile"
     val io_file    = "com.github.scala-incubator.io" %% "scala-io-file"  % V.io        % "compile"
+    val graph_core = "com.assembla.scala-incubator"  %% "graph-core"     % V.graph     % "compile"
+    val graph_json = "com.assembla.scala-incubator"  %% "graph-json"     % "1.4"     % "compile"
     val scalala    = "org.scalala"                   %% "scalala"        % V.scalala   % "compile"
     val actor      = "com.typesafe.akka"             % "akka-actor"      % V.akka      % "compile"
   }

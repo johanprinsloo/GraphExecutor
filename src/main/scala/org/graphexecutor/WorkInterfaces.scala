@@ -1,15 +1,6 @@
 package org.graphexecutor
 
-import scalala.tensor.dense.DenseMatrix
-import scalala.tensor.{ Tensor, Tensor1, Tensor2, Vector, Matrix };
-import scalala.tensor.dense.{ DenseVector, DenseMatrix };
-import scalala.tensor.sparse._
-//import scalala.tensor.operators._
-import scalala.library._
-import scalala.library.random._
-import scalala.tensor.::;
-import scalala.tensor._;
-import scalala.tensor.dense._;
+import scalala.tensor.dense._
 
 trait Work {
   def solve

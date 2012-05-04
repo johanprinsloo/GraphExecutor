@@ -46,10 +46,11 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
     assert( n.isInstanceOf[NodeRunner] === true, "NodeRunner Type check")
     assert( n.actor.isInstanceOf[ActorRef] === true, "NodeRunner Actor type check")
     assert( n.isSolvable === true )
-    n.stopActor
+    ~n
   }
 
   test("basic benchmark test") {
+    BenchControl.clear
     BenchControl.size should be (0)
     val n1 = NodeRunner("node1btest", new NoopWork(), true)
     val n2 = NodeRunner("node2btest", new NoopWork(), true)

@@ -47,6 +47,7 @@ class NodeRunnerAPItest extends FunSuite with ShouldMatchers {
 
     //benchmarker output
     BenchControl.reportData()
+
     NodeControl stopNodes n1::n2::n3::Nil
   }
 
