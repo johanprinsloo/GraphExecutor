@@ -16,10 +16,10 @@ class GraphRunnerTests extends FunSuite with ShouldMatchers {
   implicit val timeout = Timeout(5 seconds)
 
   test("simple graph execution") {
-    val graph = new GraphRunner("testgraph1")
+    val graph = GraphRunner("testgraph1")
 
     assert(graph.isInstanceOf[NodeRunner] === true, "Graph is of class NodeRunner")
-    assert(graph.isInstanceOf[GraphRunner] === true, "Graph is of class GraphRunner")
+    assert(graph.isInstanceOf[GraphRunner[GxNode,GxLink,ShadowGraph]] === true, "Graph is of class GraphRunner")
 
     val t1 = graph.solveSync()
     t1 should be(true)

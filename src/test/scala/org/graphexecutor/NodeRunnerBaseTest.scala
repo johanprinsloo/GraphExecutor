@@ -42,7 +42,7 @@ class NodeRunnerBaseTest  extends FunSuite with ShouldMatchers {
   }
 
   test("create nodes through companion") {
-    val n = NodeRunner("n1")
+    val n = NodeRunner("n1tst")
     assert( n.isInstanceOf[NodeRunner] === true, "NodeRunner Type check")
     assert( n.actor.isInstanceOf[ActorRef] === true, "NodeRunner Actor type check")
     assert( n.isSolvable === true )

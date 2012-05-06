@@ -12,6 +12,7 @@ case class GxNode(){}
 case class GxLink(){}
 
 trait AdminGraph[N,L] {
+
   def addNode( n : N )
   def delNode( n : N )
 
@@ -19,9 +20,9 @@ trait AdminGraph[N,L] {
   def delLink( l : L )
 }
 
-trait ShadowGraph extends AdminGraph[GxNode,GxLink] {
-  var nodes = List[GxNode]()
-  var links = List[GxLink]()
+class ShadowGraph extends AdminGraph[GxNode,GxLink] {
+  var nodes = Set[GxNode]()
+  var links = Set[GxLink]()
 
   def addNode( n : GxNode )  = { nodes += n }
   def delNode( n : GxNode )  = { nodes -= n }
@@ -29,7 +30,7 @@ trait ShadowGraph extends AdminGraph[GxNode,GxLink] {
   def delLink( l : GxLink )  = { links -= l }
 }
 
-class GraphRunner[G <: AdminGraph]( name: String, shadowgraph : G ) extends NodeRunner( name )  {
+class GraphRunner[N,L,T <: AdminGraph[N,L]]( name: String, shadowgraph : T) extends NodeRunner( name )  {
   implicit val timeout = Timeout(5 seconds)
   var nodes: Set[NodeRunner] = Set()
   val snode = NodeRunner( name + "_startnode" )
@@ -55,29 +56,29 @@ class GraphRunner[G <: AdminGraph]( name: String, shadowgraph : G ) extends Node
     enodes.foreach( _ -> enode )
   }
 
-  def ~>( internalnode: NodeRunner ): GraphRunner = {
+  def ~>( internalnode: NodeRunner ) = {
     nodes += internalnode
-    return this
+    this
   }
 
-  def ~~>( startnode: NodeRunner): GraphRunner = {
+  def ~~>( startnode: NodeRunner) = {
     snode -> startnode
-    return this
+    this
   }
 
-  def ~~>( startnodes: List[NodeRunner]): GraphRunner = {
+  def ~~>( startnodes: List[NodeRunner]) = {
     startnodes foreach { sn => snode -> sn }
-    return this
+    this
   }
 
-  def <~~( endnode: NodeRunner ): GraphRunner = {
+  def <~~( endnode: NodeRunner ) = {
     endnode -> enode
-    return this
+    this
   }
 
-  def <~~( endnodes: List[NodeRunner] ): GraphRunner = {
+  def <~~( endnodes: List[NodeRunner] ) = {
     endnodes foreach { en => en -> enode }
-    return this
+    this
   }
 
   /**
@@ -154,28 +155,28 @@ class GraphRunner[G <: AdminGraph]( name: String, shadowgraph : G ) extends Node
 
 object GraphRunner {
   implicit val timeout = Timeout(5 seconds)
-  def apply( name: String, membernodes: Set[NodeRunner] ): GraphRunner = {
-    var n = new GraphRunner( name )
+  def apply( name: String, membernodes: Set[NodeRunner] ) = {
+    var n = new GraphRunner[GxNode, GxLink, ShadowGraph]( name, new ShadowGraph( ) )
     n.nodes = membernodes
-    return n
+    n
   }
 
-  def apply( name: String ): GraphRunner = {
-    val n = new GraphRunner( name )
-    return n
+  def apply( name: String ) = {
+    val n = new GraphRunner[GxNode, GxLink, ShadowGraph]( name, new ShadowGraph( ) )
+    n
   }
 
-  def apply( name: String, model: Work ): GraphRunner = {
-    val n = new GraphRunner( name )
+  def apply( name: String, model: Work ) = {
+    val n = new GraphRunner[GxNode, GxLink, ShadowGraph]( name, new ShadowGraph( ) )
     n.model = model
-    return n
+    n
   }
 
-  def apply( aname: String, model: Work, benchmarker: Boolean ): GraphRunner = {
-    val n = new GraphRunner( aname )
+  def apply( aname: String, model: Work, benchmarker: Boolean ) = {
+    val n = new GraphRunner[GxNode, GxLink, ShadowGraph]( aname, new ShadowGraph( ) )
     val bnc = NodeControl.system.actorOf(Props[BenchMarker], name = aname+"_benchmarker")
     n.model = model
     Await.result( (n.actor ? AddBenchMarker( bnc )), 5 seconds)
-    return n
+    n
   }
 }

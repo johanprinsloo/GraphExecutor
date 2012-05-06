@@ -156,7 +156,7 @@ class NodeRunner( val name: String , var model : Work = new NoopWork() ) {
    * @param that
    * @return
    */
-  def ->( that: GraphRunner ): NodeRunner = {
+  def ->( that: GraphRunner[GxNode,GxLink,ShadowGraph] ): NodeRunner = {
     that.registerSource(this)
     this.registerDependent(that.snode)
     println("linked(g) " + this.name + " to " + that.snode.name)
